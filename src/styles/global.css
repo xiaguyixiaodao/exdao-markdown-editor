@@ -1,0 +1,116 @@
+:root {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-tertiary: #2d2d2d;
+  --bg-hover: #37373d;
+  --bg-active: #094771;
+  --text-primary: #cccccc;
+  --text-secondary: #858585;
+  --text-link: #3794ff;
+  --text-heading: #d4d4d4;
+  --border: #3c3c3c;
+  --accent: #007acc;
+  --accent-hover: #1a8ad4;
+  --scrollbar: #424242;
+  --scrollbar-hover: #4f4f4f;
+  --code-bg: #1e1e1e;
+  --inline-code-bg: #2d2d2d;
+  --blockquote-border: #007acc;
+  --blockquote-text: #858585;
+  --table-border: #3c3c3c;
+  --table-row-alt: #252526;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+
+::selection {
+  background: rgba(0, 122, 204, 0.3);
+}
+
+/* CM6 Search Panel */
+.cm-panel {
+  background: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  padding: 4px 8px !important;
+}
+
+.cm-panel input {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  border-radius: 4px !important;
+  padding: 3px 6px !important;
+  font-size: 13px !important;
+  font-family: var(--font-sans) !important;
+  outline: none !important;
+}
+
+.cm-panel input:focus {
+  border-color: var(--accent) !important;
+}
+
+.cm-panel button {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  border-radius: 4px !important;
+  padding: 3px 8px !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+}
+
+.cm-panel button:hover {
+  background: var(--bg-hover) !important;
+}
+
+.cm-panel label {
+  color: var(--text-secondary) !important;
+  font-size: 13px !important;
+}
+
+.cm-panel .cm-searchMatch {
+  background: rgba(255, 213, 0, 0.3) !important;
+  outline: 1px solid rgba(255, 213, 0, 0.5) !important;
+}
+
+.cm-panel .cm-searchMatch-selected {
+  background: rgba(255, 213, 0, 0.5) !important;
+}
