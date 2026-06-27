@@ -207,3 +207,13 @@ export function extractHeadings(
   }
   return headings;
 }
+
+export function extractTags(src: string): string[] {
+  const tagSet = new Set<string>();
+  const regex = /(?:^|\s)#([a-zA-Z\u4e00-\u9fa5][\w\u4e00-\u9fa5-]*)/g;
+  let match;
+  while ((match = regex.exec(src)) !== null) {
+    tagSet.add(match[1]);
+  }
+  return Array.from(tagSet).sort();
+}

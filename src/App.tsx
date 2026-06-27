@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useStore, setupFileWatcher } from "./lib/store";
 import { resolveWikiLink, selectVaultDirectory } from "./lib/vault";
 import { FileTree } from "./components/FileTree";
@@ -77,6 +78,15 @@ export default function App() {
   const setCursorPosition = useStore((s) => s.setCursorPosition);
   const findReplaceOpen = useStore((s) => s.findReplaceOpen);
   const toggleFindReplace = useStore((s) => s.toggleFindReplace);
+  const fontSize = useStore((s) => s.fontSize);
+  const setFontSize = useStore((s) => s.setFontSize);
+  const previewScale = useStore((s) => s.previewScale);
+  const setPreviewScale = useStore((s) => s.setPreviewScale);
+  const toggleFullscreen = useStore((s) => s.toggleFullscreen);
+  const toggleZenMode = useStore((s) => s.toggleZenMode);
+  const [splitRatio, setSplitRatio] = useState(50);
+  const splitDraggingRef = useRef(false);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
 
   const handleWysiwygUpdate = useCallback(({ editor: e }: { editor: any }) => {
     const md = htmlToMarkdown(e.getHTML());
@@ -120,6 +130,24 @@ export default function App() {
 
   useEffect(() => {
     setupFileWatcher();
+    try {
+      const session = JSON.parse(localStorage.getItem("exdao_session") || "{}");
+      if (session.vaultPath && session.openFiles?.length > 0) {
+        const state = useStore.getState();
+        state.openFolder(session.vaultPath).then(async () => {
+          for (const path of session.openFiles) {
+            if (!path.startsWith("__untitled__")) {
+              try {
+                await useStore.getState().openFile(path);
+              } catch {}
+            }
+          }
+          if (session.activeFile) {
+            useStore.getState().setActiveFile(session.activeFile);
+          }
+        }).catch(() => {});
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -163,10 +191,51 @@ export default function App() {
           exportToPdf(content, filename);
         }
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === "n") {
+        e.preventDefault();
+        useStore.getState().createUntitled();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "o") {
+        e.preventDefault();
+        selectVaultDirectory().then((path) => {
+          if (path) useStore.getState().openFolder(path);
+        });
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "w") {
+        e.preventDefault();
+        const current = useStore.getState().activeFile;
+        if (current) useStore.getState().closeFile(current);
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "=" || e.key === "+")) {
+        e.preventDefault();
+        setFontSize(useStore.getState().fontSize + 1);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "-") {
+        e.preventDefault();
+        setFontSize(useStore.getState().fontSize - 1);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "0") {
+        e.preventDefault();
+        setFontSize(15);
+        setPreviewScale(1);
+      }
+      if (e.key === "F11") {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "\\") {
+        e.preventDefault();
+        toggleZenMode();
+      }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [toggleQuickSwitcher, setEditorMode, toggleSidebar, toggleOutline, toggleFindReplace]);
+
+  const handleOpenFolder = useCallback(async () => {
+    const path = await selectVaultDirectory();
+    if (path) await openFolder(path);
+  }, [openFolder]);
 
   const handleNavigate = useCallback(
     async (target: string) => {
@@ -205,6 +274,26 @@ export default function App() {
   }, [handleSave]);
 
   useEffect(() => {
+    localStorage.setItem("exdao_session", JSON.stringify({
+      vaultPath,
+      openFiles,
+      activeFile,
+    }));
+  }, [vaultPath, openFiles, activeFile]);
+
+  const customCss = useStore((s) => s.customCss);
+
+  useEffect(() => {
+    let style = document.getElementById("exdao-custom-css") as HTMLStyleElement;
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "exdao-custom-css";
+      document.head.appendChild(style);
+    }
+    style.textContent = customCss;
+  }, [customCss]);
+
+  useEffect(() => {
     if (!autoSave || !activeFile) return;
     const isDirty = activeFile in unsavedChanges;
     if (!isDirty) return;
@@ -213,6 +302,36 @@ export default function App() {
     }, 2000);
     return () => clearTimeout(timer);
   }, [autoSave, activeFile, unsavedChanges, saveFile]);
+
+  const handleSplitMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    splitDraggingRef.current = true;
+    const startX = e.clientX;
+    const container = splitContainerRef.current;
+    if (!container) return;
+    const startRatio = splitRatio;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!splitDraggingRef.current || !container) return;
+      const rect = container.getBoundingClientRect();
+      const dx = ev.clientX - startX;
+      const newRatio = Math.min(80, Math.max(20, startRatio + (dx / rect.width) * 100));
+      setSplitRatio(newRatio);
+    };
+
+    const handleMouseUp = () => {
+      splitDraggingRef.current = false;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, [splitRatio]);
 
   const handleEditorScroll = useCallback(
     (info: { scrollTop: number; scrollHeight: number; clientHeight: number }) => {
@@ -231,10 +350,34 @@ export default function App() {
     editorRef.current?.scrollToLine(line);
   }, []);
 
-  const handleOpenFolder = useCallback(async () => {
-    const path = await selectVaultDirectory();
-    if (path) await openFolder(path);
-  }, [openFolder]);
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    const state = useStore.getState();
+    for (const file of files) {
+      if (file.name.endsWith(".md") || file.name.endsWith(".markdown")) {
+        const content = await file.text();
+        if (state.rootPath) {
+          const path = `${state.rootPath}/${file.name}`;
+          await invoke("write_file", { path, content });
+          await state.refreshFileTree();
+          await state.openFile(path);
+        } else {
+          const path = `__untitled__/${file.name}`;
+          useStore.setState((s) => ({
+            openFiles: [...s.openFiles, path],
+            fileContents: { ...s.fileContents, [path]: content },
+            activeFile: path,
+          }));
+        }
+      }
+    }
+  }, []);
 
   const menus = [
     {
@@ -339,6 +482,28 @@ export default function App() {
     {
       label: "帮助",
       items: [
+        {
+          label: "快捷键",
+          children: [
+            { label: "Ctrl+N  新建文档", action: () => {} },
+            { label: "Ctrl+O  打开仓库", action: () => {} },
+            { label: "Ctrl+S  保存", action: () => {} },
+            { label: "Ctrl+Shift+S  另存为", action: () => {} },
+            { label: "Ctrl+W  关闭当前文件", action: () => {} },
+            { label: "Ctrl+E  切换编辑模式", action: () => {} },
+            { label: "Ctrl+K  快速切换文件", action: () => {} },
+            { label: "Ctrl+F  查找", action: () => {} },
+            { label: "Ctrl+H  替换", action: () => {} },
+            { label: "Ctrl+B  切换侧边栏", action: () => {} },
+            { label: "Ctrl+J  切换大纲", action: () => {} },
+            { label: "Ctrl+P  打印 / 导出 PDF", action: () => {} },
+            { label: "Ctrl+/-  字体缩放", action: () => {} },
+            { label: "Ctrl+0  重置缩放", action: () => {} },
+            { label: "Ctrl+\\  专注模式", action: () => {} },
+            { label: "F11  全屏", action: () => {} },
+          ],
+        },
+        { divider: true as const, label: "" },
         { label: "关于", action: () => setAboutOpen(true) },
       ],
     },
@@ -357,7 +522,12 @@ export default function App() {
           <TabBar />
           {toolbarOpen && editorMode === "source" && <Toolbar />}
           {toolbarOpen && editorMode === "preview" && <WysiwygToolbar editor={tiptapEditor} />}
-          <div className="editor-content" style={{ "--editor-width": `${editorWidth}px`, position: "relative" } as React.CSSProperties}>
+          <div
+            className="editor-content"
+            style={{ "--editor-width": `${editorWidth}px`, position: "relative" } as React.CSSProperties}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
             {findReplaceOpen && editorMode !== "preview" && (
               <FindAndReplace isOpen={findReplaceOpen} onClose={toggleFindReplace} />
             )}
@@ -373,6 +543,7 @@ export default function App() {
                     onScroll={handleEditorScroll}
                     onCursorChange={setCursorPosition}
                     wordWrap={wordWrap}
+                    fontSize={fontSize}
                   />
                 ) : (
                   <div className="editor-empty">
@@ -398,8 +569,8 @@ export default function App() {
               </div>
             )}
             {editorMode === "split" && (
-              <>
-                <div className="editor-pane editor-pane-split">
+              <div ref={splitContainerRef} className="split-container" style={{ display: "flex", flex: 1 }}>
+                <div className="editor-pane editor-pane-split" style={{ width: `${splitRatio}%`, flexShrink: 0 }}>
                   {activeFile ? (
                     <CodeMirrorEditor
                       ref={editorRef}
@@ -410,6 +581,7 @@ export default function App() {
                       onScroll={handleEditorScroll}
                       onCursorChange={setCursorPosition}
                       wordWrap={wordWrap}
+                      fontSize={fontSize}
                     />
                   ) : (
                     <div className="editor-empty">
@@ -417,14 +589,18 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div className="preview-pane preview-pane-split">
+                <div
+                  className="split-divider"
+                  onMouseDown={handleSplitMouseDown}
+                />
+                <div className="preview-pane preview-pane-split" style={{ width: `${100 - splitRatio}%`, flexShrink: 0 }}>
                   <Preview
                     sourceScrollRatio={editorScrollRatio}
                     onSourceScroll={handlePreviewScrollAsRatio}
                     onNavigate={handleNavigate}
                   />
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>

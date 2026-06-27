@@ -8,6 +8,21 @@ interface ContextMenuState {
   node: FileNode;
 }
 
+function filterTree(node: FileNode, query: string): FileNode | null {
+  if (!query) return node;
+  const q = query.toLowerCase();
+  if (!node.is_dir) {
+    return node.name.toLowerCase().includes(q) ? node : null;
+  }
+  const filteredChildren = node.children
+    ?.map((child) => filterTree(child, query))
+    .filter((c): c is FileNode => c !== null);
+  if (filteredChildren && filteredChildren.length > 0) {
+    return { ...node, children: filteredChildren };
+  }
+  return node.name.toLowerCase().includes(q) ? node : null;
+}
+
 function ContextMenu({ x, y, node, onClose }: { x: number; y: number; node: FileNode; onClose: () => void }) {
   const openFile = useStore((s) => s.openFile);
   const deleteFile = useStore((s) => s.deleteFile);
@@ -15,6 +30,7 @@ function ContextMenu({ x, y, node, onClose }: { x: number; y: number; node: File
   const createNewFile = useStore((s) => s.createNewFile);
   const createNewFolder = useStore((s) => s.createNewFolder);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -60,6 +76,24 @@ function ContextMenu({ x, y, node, onClose }: { x: number; y: number; node: File
     await createNewFolder(dirPath, name);
   };
 
+  const handleCopyPath = async () => {
+    onClose();
+    try {
+      await navigator.clipboard.writeText(node.path);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  };
+
+  const handleCopyName = async () => {
+    onClose();
+    try {
+      await navigator.clipboard.writeText(node.name);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  };
+
   return (
     <div
       ref={menuRef}
@@ -73,6 +107,13 @@ function ContextMenu({ x, y, node, onClose }: { x: number; y: number; node: File
       )}
       <button className="context-menu-item" onClick={handleNewFile}>新建文件</button>
       <button className="context-menu-item" onClick={handleNewFolder}>新建文件夹</button>
+      <div className="context-menu-divider" />
+      <button className="context-menu-item" onClick={handleCopyPath}>
+        {copied ? "已复制路径 ✓" : "复制路径"}
+      </button>
+      <button className="context-menu-item" onClick={handleCopyName}>
+        复制文件名
+      </button>
       <div className="context-menu-divider" />
       <button className="context-menu-item" onClick={handleRename}>重命名</button>
       <button className="context-menu-item context-menu-danger" onClick={handleDelete}>删除</button>
@@ -153,6 +194,12 @@ export function FileTree() {
   const setManagerPath = useStore((s) => s.setManagerPath);
   const [managerInput, setManagerInput] = useState("");
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const displayTree = sidebarTab === "vault"
+    ? (searchQuery ? filterTree(fileTree!, searchQuery) : fileTree)
+    : (searchQuery && managerTree ? filterTree(managerTree, searchQuery) : managerTree);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -191,25 +238,48 @@ export function FileTree() {
       <div className="file-tree-tabs">
         <button
           className={`file-tree-tab ${sidebarTab === "vault" ? "file-tree-tab-active" : ""}`}
-          onClick={() => setSidebarTab("vault")}
+          onClick={() => { setSidebarTab("vault"); setSearchQuery(""); }}
         >
           仓库
         </button>
         <button
           className={`file-tree-tab ${sidebarTab === "manager" ? "file-tree-tab-active" : ""}`}
-          onClick={() => setSidebarTab("manager")}
+          onClick={() => { setSidebarTab("manager"); setSearchQuery(""); }}
         >
           文件管理器
         </button>
+      </div>
+      <div className="file-tree-search">
+        <input
+          ref={searchInputRef}
+          className="file-tree-search-input"
+          type="text"
+          placeholder="搜索文件..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {searchQuery && (
+          <button className="file-tree-search-clear" onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}>
+            ×
+          </button>
+        )}
       </div>
       {sidebarTab === "vault" ? (
         <div className="file-tree-content">
           {rootPath && fileTree ? (
             <>
-              <div className="tree-root-label" title={rootPath}>
-                {rootPath.split(/[/\\]/).pop() || "仓库"}
-              </div>
-              <TreeNode node={fileTree} depth={0} onFileClick={openFile} />
+              {!searchQuery && (
+                <div className="tree-root-label" title={rootPath}>
+                  {rootPath.split(/[/\\]/).pop() || "仓库"}
+                </div>
+              )}
+              {displayTree ? (
+                <TreeNode node={displayTree} depth={0} onFileClick={openFile} />
+              ) : (
+                <div className="tree-empty">
+                  <p>未找到匹配的文件</p>
+                </div>
+              )}
             </>
           ) : (
             <div className="tree-empty">
@@ -234,16 +304,18 @@ export function FileTree() {
             </button>
           </div>
           <div className="file-tree-content">
-            {managerTree ? (
+            {displayTree ? (
               <>
-                <div className="tree-root-label" title={managerPath || ""}>
-                  {managerPath?.split(/[/\\]/).pop() || "文档"}
-                </div>
-                <TreeNode node={managerTree} depth={0} onFileClick={openFile} />
+                {!searchQuery && (
+                  <div className="tree-root-label" title={managerPath || ""}>
+                    {managerPath?.split(/[/\\]/).pop() || "文档"}
+                  </div>
+                )}
+                <TreeNode node={displayTree} depth={0} onFileClick={openFile} />
               </>
             ) : (
               <div className="tree-empty">
-                <p>无法加载目录</p>
+                {searchQuery ? <p>未找到匹配的文件</p> : <p>无法加载目录</p>}
               </div>
             )}
           </div>

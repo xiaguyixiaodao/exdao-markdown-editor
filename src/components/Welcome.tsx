@@ -13,7 +13,7 @@ export function Welcome() {
   };
 
   const handleOpenFileManager = () => {
-    setSidebarTab("manager");
+    useStore.setState({ sidebarTab: "manager", sidebarOpen: true });
   };
 
   return (
@@ -51,18 +51,6 @@ export function Welcome() {
             ))}
           </div>
         )}
-        <div className="welcome-shortcuts">
-          <h3>快捷键</h3>
-          <div className="shortcut-row">
-            <kbd>Ctrl+K</kbd> <span>快速切换</span>
-          </div>
-          <div className="shortcut-row">
-            <kbd>Ctrl+S</kbd> <span>保存</span>
-          </div>
-          <div className="shortcut-row">
-            <kbd>Ctrl+E</kbd> <span>切换预览</span>
-          </div>
-        </div>
       </div>
     </div>
   );

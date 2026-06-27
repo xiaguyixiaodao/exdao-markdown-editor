@@ -13,6 +13,7 @@ export function Preview({ sourceScrollRatio, onSourceScroll, onNavigate, onEdit 
   const activeFile = useStore((s) => s.activeFile);
   const fileContents = useStore((s) => s.fileContents);
   const unsavedChanges = useStore((s) => s.unsavedChanges);
+  const previewScale = useStore((s) => s.previewScale);
   const containerRef = useRef<HTMLDivElement>(null);
   const syncingRef = useRef(false);
   const [debouncedContent, setDebouncedContent] = useState("");
@@ -125,6 +126,7 @@ export function Preview({ sourceScrollRatio, onSourceScroll, onNavigate, onEdit 
         ref={containerRef}
         className="preview-container"
         onScroll={handleScroll}
+        style={{ transform: `scale(${previewScale})`, transformOrigin: "top left", width: `${100 / previewScale}%` }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
       {onEdit && (

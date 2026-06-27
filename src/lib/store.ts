@@ -12,6 +12,7 @@ export interface FileNode {
 export type EditorMode = "source" | "preview" | "split";
 
 const RECENT_KEY = "exdao_recent_vaults";
+const SESSION_KEY = "exdao_session";
 const MAX_RECENT = 10;
 
 function loadRecent(): string[] {
@@ -24,6 +25,20 @@ function loadRecent(): string[] {
 
 function saveRecent(list: string[]) {
   localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+}
+
+function loadSession(): { openFiles: string[]; activeFile: string | null } {
+  try {
+    const data = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
+    return { openFiles: data.openFiles || [], activeFile: data.activeFile || null };
+  } catch {
+    return { openFiles: [], activeFile: null };
+  }
+}
+
+function saveSession(openFiles: string[], activeFile: string | null) {
+  const valid = openFiles.filter((f) => !f.startsWith("__untitled__/"));
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ openFiles: valid, activeFile }));
 }
 
 function addRecent(path: string) {
@@ -64,6 +79,13 @@ interface AppState {
   cursorPosition: CursorPosition;
   autoSave: boolean;
   findReplaceOpen: boolean;
+  lastSaveTime: number | null;
+  fontSize: number;
+  previewScale: number;
+  isFullscreen: boolean;
+  isZenMode: boolean;
+  formatOnSave: boolean;
+  customCss: string;
 
   openFolder: (path: string) => Promise<void>;
   createUntitled: () => Promise<void>;
@@ -96,6 +118,12 @@ interface AppState {
   setCursorPosition: (pos: CursorPosition) => void;
   setAutoSave: (enabled: boolean) => void;
   toggleFindReplace: () => void;
+  setFontSize: (size: number) => void;
+  setPreviewScale: (scale: number) => void;
+  toggleFullscreen: () => void;
+  toggleZenMode: () => void;
+  setFormatOnSave: (enabled: boolean) => void;
+  setCustomCss: (css: string) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -106,7 +134,7 @@ export const useStore = create<AppState>((set, get) => ({
   fileContents: {},
   unsavedChanges: {},
   editorMode: "preview",
-  sidebarOpen: true,
+  sidebarOpen: false,
   sidebarTab: "vault",
   managerPath: null,
   managerTree: null,
@@ -119,11 +147,18 @@ export const useStore = create<AppState>((set, get) => ({
   toolbarOpen: true,
   wordWrap: false,
   editorWidth: Number(localStorage.getItem("exdao_editor_width")) || 720,
-  theme: localStorage.getItem("exdao_theme") || "dark",
+  theme: localStorage.getItem("exdao_theme") || "system",
   mdStyle: localStorage.getItem("exdao_mdstyle") || "default",
   cursorPosition: { line: 1, column: 1 },
   autoSave: localStorage.getItem("exdao_auto_save") === "true",
   findReplaceOpen: false,
+  lastSaveTime: null,
+  fontSize: Number(localStorage.getItem("exdao_font_size")) || 15,
+  previewScale: 1,
+  isFullscreen: false,
+  isZenMode: false,
+  formatOnSave: localStorage.getItem("exdao_format_on_save") === "true",
+  customCss: localStorage.getItem("exdao_custom_css") || "",
 
   openFolder: async (path: string) => {
     const tree = await invoke<FileNode>("open_vault", { path });
@@ -212,9 +247,13 @@ export const useStore = create<AppState>((set, get) => ({
       await get().saveFileAs(newPath);
       return;
     }
-    const { unsavedChanges } = get();
-    const content = unsavedChanges[path] ?? get().fileContents[path];
+    const { unsavedChanges, formatOnSave } = get();
+    let content = unsavedChanges[path] ?? get().fileContents[path];
     if (content !== undefined) {
+      if (formatOnSave) {
+        const { formatMarkdown } = await import("./format");
+        content = formatMarkdown(content);
+      }
       await invoke("write_file", { path, content });
       const { fileContents, savedToDisk } = get();
       const newUnsaved = { ...unsavedChanges };
@@ -223,6 +262,7 @@ export const useStore = create<AppState>((set, get) => ({
       set({
         fileContents: { ...fileContents, [path]: content },
         unsavedChanges: newUnsaved,
+        lastSaveTime: Date.now(),
       });
     }
   },
@@ -385,6 +425,39 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   toggleFindReplace: () => set((s) => ({ findReplaceOpen: !s.findReplaceOpen })),
+
+  setFontSize: (size: number) => {
+    const clamped = Math.min(32, Math.max(10, size));
+    localStorage.setItem("exdao_font_size", String(clamped));
+    set({ fontSize: clamped });
+  },
+
+  setPreviewScale: (scale: number) => {
+    const clamped = Math.min(2, Math.max(0.5, scale));
+    set({ previewScale: clamped });
+  },
+
+  toggleFullscreen: () => {
+    const isFullscreen = !get().isFullscreen;
+    if (isFullscreen) {
+      document.documentElement.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+    set({ isFullscreen });
+  },
+
+  toggleZenMode: () => set((s) => ({ isZenMode: !s.isZenMode })),
+
+  setFormatOnSave: (enabled: boolean) => {
+    localStorage.setItem("exdao_format_on_save", String(enabled));
+    set({ formatOnSave: enabled });
+  },
+
+  setCustomCss: (css: string) => {
+    localStorage.setItem("exdao_custom_css", css);
+    set({ customCss: css });
+  },
 }));
 
 export function setupFileWatcher() {

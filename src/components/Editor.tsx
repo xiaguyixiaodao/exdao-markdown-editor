@@ -7,6 +7,8 @@ import { syntaxHighlighting, HighlightStyle, indentOnInput, bracketMatching, fol
 import { tags } from "@lezer/highlight";
 import { searchKeymap, highlightSelectionMatches, openSearchPanel } from "@codemirror/search";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import { invoke } from "@tauri-apps/api/core";
+import { useStore } from "../lib/store";
 
 const editorTheme = EditorView.theme({
   "&": {
@@ -96,18 +98,20 @@ interface CodeMirrorEditorProps {
   onNavigate?: (target: string) => void;
   onCursorChange?: (pos: { line: number; column: number }) => void;
   wordWrap?: boolean;
+  fontSize?: number;
 }
 
 const wordWrapCompartment = new Compartment();
 
 export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
-  function CodeMirrorEditor({ doc, onChange, onScroll, onSave, onCursorChange, wordWrap }, ref) {
+  function CodeMirrorEditor({ doc, onChange, onScroll, onSave, onCursorChange, wordWrap, fontSize = 15 }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onChangeRef = useRef(onChange);
     const onScrollRef = useRef(onScroll);
     const onSaveRef = useRef(onSave);
     const onCursorChangeRef = useRef(onCursorChange);
+    const fontSizeCompartment = useRef(new Compartment());
 
     onChangeRef.current = onChange;
     onScrollRef.current = onScroll;
@@ -148,6 +152,9 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
         syntaxHighlighting(markdownHighlighting),
         markdown({ base: markdownLanguage }),
         wordWrapCompartment.of(wordWrap ? EditorView.lineWrapping : []),
+        fontSizeCompartment.current.of(EditorView.theme({
+          "&": { fontSize: `${fontSize}px` },
+        })),
         keymap.of([
           ...defaultKeymap,
           ...historyKeymap,
@@ -191,6 +198,52 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
               clientHeight: dom.clientHeight,
             });
           },
+          paste: (event, view) => {
+            const items = event.clipboardData?.items;
+            if (!items) return false;
+            for (const item of items) {
+              if (item.type.startsWith("image/")) {
+                event.preventDefault();
+                const blob = item.getAsFile();
+                if (!blob) continue;
+                const ext = blob.type.split("/")[1] || "png";
+                const timestamp = Date.now();
+                const fileName = `paste-${timestamp}.${ext}`;
+                blob.arrayBuffer().then((arrayBuffer) => {
+                  const data = Array.from(new Uint8Array(arrayBuffer));
+                  const state = useStore.getState();
+                  const vaultPath = state.rootPath;
+                  const activeFile = state.activeFile;
+                  if (vaultPath && activeFile) {
+                    const dir = activeFile.substring(0, activeFile.lastIndexOf("/"));
+                    const imgPath = `${dir}/${fileName}`;
+                    invoke("write_binary_file", { path: imgPath, data }).then(() => {
+                      const insertText = `![${fileName}](${fileName})`;
+                      const pos = view.state.selection.main.head;
+                      view.dispatch({
+                        changes: { from: pos, insert: insertText },
+                        selection: { anchor: pos + insertText.length },
+                      });
+                    });
+                  } else {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const base64 = reader.result as string;
+                      const insertText = `![pasted image](${base64})`;
+                      const pos = view.state.selection.main.head;
+                      view.dispatch({
+                        changes: { from: pos, insert: insertText },
+                        selection: { anchor: pos + insertText.length },
+                      });
+                    };
+                    reader.readAsDataURL(blob);
+                  }
+                });
+                return true;
+              }
+            }
+            return false;
+          },
         }),
       ];
 
@@ -218,6 +271,16 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
         ),
       });
     }, [wordWrap]);
+
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      view.dispatch({
+        effects: fontSizeCompartment.current.reconfigure(
+          EditorView.theme({ "&": { fontSize: `${fontSize}px` } })
+        ),
+      });
+    }, [fontSize]);
 
     useEffect(() => {
       const view = viewRef.current;

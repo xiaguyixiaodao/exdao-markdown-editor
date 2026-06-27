@@ -84,6 +84,14 @@ fn get_home_dir() -> Result<String, String> {
 }
 
 #[tauri::command]
+fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    if let Some(parent) = Path::new(&path).parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(&path, &data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn resolve_wikilink(vault_path: String, link_target: String) -> Result<Option<String>, String> {
     let vault = PathBuf::from(&vault_path);
     for entry in WalkDir::new(&vault)
@@ -241,6 +249,7 @@ pub fn run() {
             open_directory,
             read_file,
             write_file,
+            write_binary_file,
             create_file,
             delete_file,
             rename_file,

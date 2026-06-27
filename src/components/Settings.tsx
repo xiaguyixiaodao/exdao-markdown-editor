@@ -13,6 +13,10 @@ export function Settings({ open, onClose }: SettingsProps) {
   const setEditorWidth = useStore((s) => s.setEditorWidth);
   const autoSave = useStore((s) => s.autoSave);
   const setAutoSave = useStore((s) => s.setAutoSave);
+  const formatOnSave = useStore((s) => s.formatOnSave);
+  const setFormatOnSave = useStore((s) => s.setFormatOnSave);
+  const customCss = useStore((s) => s.customCss);
+  const setCustomCss = useStore((s) => s.setCustomCss);
 
   if (!open) return null;
 
@@ -97,6 +101,29 @@ export function Settings({ open, onClose }: SettingsProps) {
                 <span className="settings-value">{autoSave ? "已开启" : "已关闭"}</span>
               </label>
             </div>
+            <div className="settings-row">
+              <span className="settings-label">保存时格式化：</span>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={formatOnSave}
+                  onChange={(e) => setFormatOnSave(e.target.checked)}
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                <span className="settings-value">{formatOnSave ? "已开启" : "已关闭"}</span>
+              </label>
+            </div>
+          </div>
+          <div className="settings-section">
+            <h3>自定义样式</h3>
+            <p className="settings-desc">输入自定义 CSS 代码，实时生效。</p>
+            <textarea
+              className="settings-css-input"
+              placeholder="/* 在此输入自定义 CSS */"
+              value={customCss}
+              onChange={(e) => setCustomCss(e.target.value)}
+              spellCheck={false}
+            />
           </div>
         </div>
       </div>
