@@ -1,6 +1,6 @@
 {
   "productName": "ExDao Editor",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "identifier": "com.exdao-editor.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -15,7 +15,8 @@
         "width": 1280,
         "height": 800,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": false
       }
     ],
     "security": {
@@ -29,6 +30,12 @@
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "preInstallScript": "deb/preinst",
+        "postInstallScript": "deb/postinst"
+      }
+    }
   }
 }

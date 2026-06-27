@@ -1,6 +1,6 @@
 # ExDao Editor
 
-轻量级 Markdown 编辑器 | Lightweight Markdown Editor
+轻量级 Markdown 编辑器 | Lightweight Markdown Editor v0.3.0
 
 基于 Tauri 2 + React 18 + CodeMirror 6 构建，专注于编辑体验的本地 Markdown 编辑器。
 
@@ -11,7 +11,7 @@ Built with Tauri 2 + React 18 + CodeMirror 6, a local-first Markdown editor focu
 ## 功能特性 / Features
 
 ### 编辑模式 / Editing Modes
-- **源码模式** / Source Mode — CodeMirror 6 驱动，完整的 Markdown 语法高亮
+- **源码模式** / Source Mode — CodeMirror 6 驱动，完整的 Markdown 语法高亮，自动换行
 - **预览模式** / Preview Mode — TipTap WYSIWYG 所见即所得编辑
 - **分屏模式** / Split View — 左侧源码 + 右侧实时预览，支持拖拽调整比例
 
@@ -23,6 +23,14 @@ Built with Tauri 2 + React 18 + CodeMirror 6, a local-first Markdown editor focu
 - 大纲导航（按标题跳转）
 - 快速切换器（Ctrl+K 模糊搜索文件）
 - 查找替换（Ctrl+F / Ctrl+H）
+- 标签系统（#标签 语法，状态栏显示）
+
+### 编辑体验 / Editing Experience
+- **专注模式** — 聚焦光标所在行 ±N 行（范围可调：3/5/8/10/15），其余行变淡
+- **打字机模式** — 光标始终保持在编辑器垂直居中位置
+- **全屏模式** — F11 切换全屏
+- **字体缩放** — Ctrl+/-/0 调整字体大小，持久化保存
+- **内容居中** — 编辑器宽度可调（400-1920px），内容居中显示
 
 ### 工具栏 / Toolbar
 - 标题 H1-H3、粗体、斜体、删除线、行内代码
@@ -35,29 +43,42 @@ Built with Tauri 2 + React 18 + CodeMirror 6, a local-first Markdown editor focu
 - 跟随系统 / 深色 / 浅色 主题
 - 6 种自定义主题（Nord、Monokai、Solarized Dark、GitHub Dark、Dracula 等）
 - 8 种 Markdown 显示样式（默认、优雅、现代、紧凑、衬线、手写、终端等）
+- 自定义 CSS 样式注入
 
 ### 导出 / Export
-- 导出为 HTML（带完整样式）
-- 打印 / 导出 PDF（Ctrl+P）
+- 导出为 HTML（带完整样式，保存对话框选择位置）
+- 导出为 PDF（在系统浏览器中打开，用户通过浏览器打印保存）
 
 ### 编辑器设置 / Editor Settings
-- 编辑器宽度可调（400-1920px 滑块）
-- 字体缩放（Ctrl+/-/0，持久化保存）
-- 自动换行开关
 - 自动保存（可配置，2 秒延迟）
 - 保存时格式化（清理尾部空格、多余空行）
-- 自定义 CSS 样式注入
 - 会话恢复（重启后自动恢复打开的文件）
+- 自动换行（默认开启）
+
+### 窗口管理 / Window Management
+- 无标题栏设计，菜单栏可拖拽
+- 自定义窗口控制按钮（最小化、最大化、关闭）
+- 菜单栏「退出」按钮关闭应用
+- 升级安装时自动保留用户设置
 
 ### 其他 / Others
 - 拖拽 .md 文件到编辑区打开
 - 粘贴剪贴板图片自动保存到仓库
-- 标签系统（#标签 语法，状态栏显示）
 - 状态栏：行列号 / 字数统计 / 阅读时间 / 上次保存时间
 - 标签页管理：右键菜单（关闭/关闭其他/关闭全部）、中键关闭、横向滚动
 - 文件树右键菜单：复制路径、复制文件名、新建、重命名、删除
-- 全屏模式（F11）
-- 专注模式（Ctrl+\，隐藏所有 UI）
+
+---
+
+## 菜单栏 / Menu Bar
+
+| 菜单 / Menu | 内容 / Contents |
+|---|---|
+| **文件** / File | 新建、打开仓库、保存、另存为、关闭、导出 HTML/PDF、关闭应用 |
+| **编辑** / Edit | 撤销、重做、查找、替换、自动换行、保存时格式化 |
+| **视图** / View | 编辑模式、工具栏/侧边栏/大纲、字体缩放、全屏、专注模式、打字机模式、专注范围、主题、样式 |
+| **设置** / Settings | 自动保存、编辑器设置、主题、样式 |
+| **帮助** / Help | 快捷键、关于 |
 
 ---
 
@@ -76,11 +97,10 @@ Built with Tauri 2 + React 18 + CodeMirror 6, a local-first Markdown editor focu
 | `Ctrl+H` | 替换 / Replace |
 | `Ctrl+B` | 切换侧边栏 / Toggle Sidebar |
 | `Ctrl+J` | 切换大纲 / Toggle Outline |
-| `Ctrl+P` | 打印 / 导出 PDF / Print / Export PDF |
 | `Ctrl+Z` | 撤销 / Undo |
 | `Ctrl+Y` | 重做 / Redo |
-| `Ctrl++` | 放大 / Zoom In |
-| `Ctrl+-` | 缩小 / Zoom Out |
+| `Ctrl++` | 字体放大 / Zoom In |
+| `Ctrl+-` | 字体缩小 / Zoom Out |
 | `Ctrl+0` | 重置缩放 / Reset Zoom |
 | `Ctrl+\` | 专注模式 / Zen Mode |
 | `F11` | 全屏 / Fullscreen |
@@ -153,7 +173,7 @@ src/
 │   ├── mdConvert.ts        # Markdown ↔ HTML 转换 / Conversion layer
 │   ├── mdStyles.ts         # 8 种 Markdown 显示样式 / Display styles
 │   ├── themes.ts           # 主题定义 / Theme definitions
-│   ├── export.ts           # HTML/PDF 导出 / Export utilities
+│   ├── export.ts           # HTML 导出 / Export utilities
 │   ├── format.ts           # 保存时格式化 / Format on save
 │   ├── snippets.ts         # 15 种代码片段模板 / Code snippets
 │   └── vault.ts            # Tauri IPC 调用 / Tauri IPC calls
@@ -169,6 +189,9 @@ src-tauri/
 │   ├── lib.rs              # Rust 后端命令 / Backend commands
 │   ├── main.rs             # Tauri 入口 / Tauri entry
 │   └── watcher.rs          # 文件监听 / File watcher
+├── deb/
+│   ├── preinst             # 安装前脚本 / Pre-install script
+│   └── postinst            # 安装后脚本 / Post-install script
 └── tauri.conf.json         # Tauri 配置 / Tauri config
 ```
 

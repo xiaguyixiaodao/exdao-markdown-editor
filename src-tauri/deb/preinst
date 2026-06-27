@@ -1,0 +1,41 @@
+#!/bin/bash
+set -e
+
+APP_ID="com.exdao-editor.app"
+DATA_DIR="$HOME/.local/share/$APP_ID"
+BACKUP_DIR="/tmp/exdao-editor-backup-$$"
+
+# 检查是否已安装旧版本
+if dpkg -l exdao-editor 2>/dev/null | grep -q "^ii"; then
+    OLD_VERSION=$(dpkg -s exdao-editor | grep "^Version:" | awk '{print $2}')
+    echo "检测到旧版本 v$OLD_VERSION，正在备份设置..."
+
+    # 创建备份目录
+    mkdir -p "$BACKUP_DIR"
+
+    # 备份用户数据（localstorage 包含所有设置）
+    if [ -d "$DATA_DIR" ]; then
+        cp -r "$DATA_DIR" "$BACKUP_DIR/data" 2>/dev/null || true
+        echo "已备份应用数据到 $BACKUP_DIR"
+    fi
+
+    # 备份 WebKit localStorage（Tauri WebKit 数据）
+    WEBKIT_DATA="$HOME/.local/share/$APP_ID/../../../WebKit/$APP_ID"
+    if [ -d "$WEBKIT_DATA" ]; then
+        cp -r "$WEBKIT_DATA" "$BACKUP_DIR/webkit" 2>/dev/null || true
+    fi
+
+    # 备份 localstorage 目录
+    if [ -d "$DATA_DIR/localstorage" ]; then
+        mkdir -p "$BACKUP_DIR/localstorage"
+        cp -r "$DATA_DIR/localstorage/"* "$BACKUP_DIR/localstorage/" 2>/dev/null || true
+        echo "已备份 localStorage 数据"
+    fi
+
+    # 记录备份路径供 postinst 使用
+    echo "$BACKUP_DIR" > /tmp/exdao-editor-backup-path
+
+    # 卸载旧版本（保留配置）
+    echo "正在移除旧版本..."
+    dpkg --purge --force-depends exdao-editor 2>/dev/null || true
+fi

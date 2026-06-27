@@ -1,4 +1,8 @@
 import { renderMarkdown } from "./markdown";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { open } from "@tauri-apps/plugin-shell";
+import { tempDir } from "@tauri-apps/api/path";
 
 export function exportToHtml(markdown: string, title: string): string {
   const htmlContent = renderMarkdown(markdown);
@@ -108,26 +112,22 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#039;");
 }
 
-export function downloadFile(content: string, filename: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+export async function saveHtml(markdown: string, title: string) {
+  const html = exportToHtml(markdown, title);
+  const path = await save({
+    defaultPath: `${title}.html`,
+    filters: [{ name: "HTML", extensions: ["html"] }],
+  });
+  if (path) {
+    await writeTextFile(path, html);
+  }
 }
 
-export function exportToPdf(markdown: string, title: string) {
-  const htmlContent = exportToHtml(markdown, title);
-  const printWindow = window.open("", "_blank");
-  if (printWindow) {
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
-  }
+export async function exportToPdf(markdown: string, title: string) {
+  const html = exportToHtml(markdown, title);
+  const dir = await tempDir();
+  const sep = dir.includes("\\") ? "\\" : "/";
+  const tmpPath = `${dir}${sep}${title}.html`;
+  await writeTextFile(tmpPath, html);
+  await open(tmpPath);
 }

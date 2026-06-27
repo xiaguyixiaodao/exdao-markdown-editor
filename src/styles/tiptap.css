@@ -208,3 +208,17 @@
   pointer-events: none;
   height: 0;
 }
+
+/* Zen Mode */
+.wysiwyg-zen-mode .tiptap {
+  padding: 24px 32px;
+}
+
+.tiptap .tiptap-zen-dim {
+  opacity: 0.2;
+  transition: opacity 0.2s;
+}
+
+.tiptap .tiptap-zen-dim * {
+  opacity: 0.2;
+}

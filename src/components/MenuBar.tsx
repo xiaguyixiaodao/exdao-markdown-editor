@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 interface MenuItem {
   label: string;
@@ -111,6 +112,8 @@ export function MenuBar({ menus }: MenuBarProps) {
 
   const handleClose = useCallback(() => setOpenMenu(null), []);
 
+  const win = getCurrentWindow();
+
   return (
     <div className="menu-bar" ref={barRef}>
       {menus.map((menu, i) => (
@@ -127,6 +130,17 @@ export function MenuBar({ menus }: MenuBarProps) {
           )}
         </div>
       ))}
+      <div className="window-controls">
+        <button className="win-btn win-minimize" onClick={() => win.minimize()} title="最小化">
+          <svg width="8" height="1" viewBox="0 0 8 1"><rect width="8" height="1" fill="currentColor"/></svg>
+        </button>
+        <button className="win-btn win-maximize" onClick={() => win.toggleMaximize()} title="最大化">
+          <svg width="8" height="8" viewBox="0 0 8 8"><rect x="0.5" y="0.5" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="1"/></svg>
+        </button>
+        <button className="win-btn win-close" onClick={() => win.close()} title="关闭">
+          <svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 1L7 7M7 1L1 7" stroke="currentColor" strokeWidth="1"/></svg>
+        </button>
+      </div>
     </div>
   );
 }

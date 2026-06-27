@@ -18,7 +18,7 @@ import { Settings } from "./components/Settings";
 import { MenuBar } from "./components/MenuBar";
 import { themes } from "./lib/themes";
 import { mdStyles } from "./lib/mdStyles";
-import { exportToHtml, downloadFile, exportToPdf } from "./lib/export";
+import { saveHtml, exportToPdf } from "./lib/export";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -84,6 +84,11 @@ export default function App() {
   const setPreviewScale = useStore((s) => s.setPreviewScale);
   const toggleFullscreen = useStore((s) => s.toggleFullscreen);
   const toggleZenMode = useStore((s) => s.toggleZenMode);
+  const typewriterMode = useStore((s) => s.typewriterMode);
+  const toggleTypewriterMode = useStore((s) => s.toggleTypewriterMode);
+  const isZenMode = useStore((s) => s.isZenMode);
+  const zenModeRange = useStore((s) => s.zenModeRange);
+  const setZenModeRange = useStore((s) => s.setZenModeRange);
   const [splitRatio, setSplitRatio] = useState(50);
   const splitDraggingRef = useRef(false);
   const splitContainerRef = useRef<HTMLDivElement>(null);
@@ -133,18 +138,13 @@ export default function App() {
     try {
       const session = JSON.parse(localStorage.getItem("exdao_session") || "{}");
       if (session.vaultPath && session.openFiles?.length > 0) {
-        const state = useStore.getState();
-        state.openFolder(session.vaultPath).then(async () => {
+        useStore.getState().openFolder(session.vaultPath).then(async () => {
           for (const path of session.openFiles) {
             if (!path.startsWith("__untitled__")) {
-              try {
-                await useStore.getState().openFile(path);
-              } catch {}
+              try { await useStore.getState().openFile(path); } catch {}
             }
           }
-          if (session.activeFile) {
-            useStore.getState().setActiveFile(session.activeFile);
-          }
+          if (session.activeFile) useStore.getState().setActiveFile(session.activeFile);
         }).catch(() => {});
       }
     } catch {}
@@ -182,14 +182,6 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && e.key === "h") {
         e.preventDefault();
         toggleFindReplace();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === "p") {
-        e.preventDefault();
-        if (activeFile) {
-          const content = useStore.getState().unsavedChanges[activeFile] ?? useStore.getState().fileContents[activeFile] ?? "";
-          const filename = activeFile.split(/[/\\]/).pop()?.replace(/\.md$/i, "") || "document";
-          exportToPdf(content, filename);
-        }
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "n") {
         e.preventDefault();
@@ -275,9 +267,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem("exdao_session", JSON.stringify({
-      vaultPath,
-      openFiles,
-      activeFile,
+      vaultPath, openFiles, activeFile,
     }));
   }, [vaultPath, openFiles, activeFile]);
 
@@ -394,28 +384,33 @@ export default function App() {
         { divider: true as const, label: "" },
         {
           label: "导出为 HTML",
-          action: () => {
+          action: async () => {
             if (!activeFile) return;
             const content = unsavedChanges[activeFile] ?? fileContents[activeFile] ?? "";
             const filename = activeFile.split(/[/\\]/).pop()?.replace(/\.md$/i, "") || "document";
-            const html = exportToHtml(content, filename);
-            downloadFile(html, `${filename}.html`, "text/html;charset=utf-8");
+            await saveHtml(content, filename);
           },
           disabled: !activeFile,
         },
         {
-          label: "打印 / 导出 PDF",
-          shortcut: "Ctrl+P",
-          action: () => {
+          label: "导出为 PDF",
+          action: async () => {
             if (!activeFile) return;
             const content = unsavedChanges[activeFile] ?? fileContents[activeFile] ?? "";
             const filename = activeFile.split(/[/\\]/).pop()?.replace(/\.md$/i, "") || "document";
-            exportToPdf(content, filename);
+            await exportToPdf(content, filename);
           },
           disabled: !activeFile,
         },
         { divider: true as const, label: "" },
-        { label: "设置", action: () => setSettingsOpen(true) },
+        {
+          label: "关闭应用",
+          action: () => {
+            import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+              getCurrentWindow().close();
+            });
+          },
+        },
       ],
     },
     {
@@ -429,7 +424,7 @@ export default function App() {
             if (mode === "preview" && tiptapEditor) {
               tiptapEditor.chain().focus().undo().run();
             } else {
-              editorRef.current?.scrollToLine(0);
+              editorRef.current?.undo();
             }
           },
         },
@@ -440,12 +435,20 @@ export default function App() {
             const mode = useStore.getState().editorMode;
             if (mode === "preview" && tiptapEditor) {
               tiptapEditor.chain().focus().redo().run();
+            } else {
+              editorRef.current?.redo();
             }
           },
         },
         { divider: true as const, label: "" },
         { label: "查找", shortcut: "Ctrl+F", action: toggleFindReplace },
         { label: "替换", shortcut: "Ctrl+H", action: toggleFindReplace },
+        { divider: true as const, label: "" },
+        { label: `${wordWrap ? "关闭" : "开启"}自动换行`, action: toggleWordWrap },
+        {
+          label: `${useStore.getState().formatOnSave ? "关闭" : "开启"}保存时格式化`,
+          action: () => useStore.getState().setFormatOnSave(!useStore.getState().formatOnSave),
+        },
       ],
     },
     {
@@ -459,7 +462,54 @@ export default function App() {
         { label: `${useStore.getState().sidebarOpen ? "隐藏" : "显示"}侧边栏`, shortcut: "Ctrl+B", action: toggleSidebar },
         { label: `${useStore.getState().outlineOpen ? "隐藏" : "显示"}大纲`, shortcut: "Ctrl+J", action: toggleOutline },
         { divider: true as const, label: "" },
-        { label: `${wordWrap ? "关闭" : "开启"}自动换行`, action: toggleWordWrap },
+        {
+          label: "字体放大",
+          shortcut: "Ctrl++",
+          action: () => setFontSize(useStore.getState().fontSize + 1),
+        },
+        {
+          label: "字体缩小",
+          shortcut: "Ctrl+-",
+          action: () => setFontSize(useStore.getState().fontSize - 1),
+        },
+        {
+          label: "重置字体大小",
+          shortcut: "Ctrl+0",
+          action: () => { setFontSize(15); setPreviewScale(1); },
+        },
+        { divider: true as const, label: "" },
+        {
+          label: `${useStore.getState().isFullscreen ? "✓ " : "  "}全屏模式`,
+          shortcut: "F11",
+          action: toggleFullscreen,
+        },
+        {
+          label: `${useStore.getState().isZenMode ? "✓ " : "  "}专注模式`,
+          shortcut: "Ctrl+\\",
+          action: toggleZenMode,
+        },
+        {
+          label: `${typewriterMode ? "✓ " : "  "}打字机模式`,
+          action: toggleTypewriterMode,
+        },
+        { divider: true as const, label: "" },
+        {
+          label: "专注模式范围",
+          children: [3, 5, 8, 10, 15].map((n) => ({
+            label: `${zenModeRange === n ? "✓ " : "  "}${n} 行`,
+            action: () => setZenModeRange(n),
+          })),
+        },
+      ],
+    },
+    {
+      label: "设置",
+      items: [
+        {
+          label: `${autoSave ? "✓ " : "  "}自动保存`,
+          action: () => useStore.getState().setAutoSave(!autoSave),
+        },
+        { label: "编辑器设置...", action: () => setSettingsOpen(true) },
         { divider: true as const, label: "" },
         {
           label: "主题",
@@ -496,7 +546,6 @@ export default function App() {
             { label: "Ctrl+H  替换", action: () => {} },
             { label: "Ctrl+B  切换侧边栏", action: () => {} },
             { label: "Ctrl+J  切换大纲", action: () => {} },
-            { label: "Ctrl+P  打印 / 导出 PDF", action: () => {} },
             { label: "Ctrl+/-  字体缩放", action: () => {} },
             { label: "Ctrl+0  重置缩放", action: () => {} },
             { label: "Ctrl+\\  专注模式", action: () => {} },
@@ -510,11 +559,14 @@ export default function App() {
   ];
 
   if (!vaultPath && openFiles.length === 0 && !sidebarOpen) {
-    return <Welcome />;
+    return <>
+      <Welcome onOpenSettings={() => setSettingsOpen(true)} />
+      <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    </>;
   }
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout ${isZenMode ? "zen-mode" : ""}`}>
       <MenuBar menus={menus} />
       <div className="app-body">
         <FileTree />
@@ -544,6 +596,9 @@ export default function App() {
                     onCursorChange={setCursorPosition}
                     wordWrap={wordWrap}
                     fontSize={fontSize}
+                    typewriterMode={typewriterMode}
+                    zenMode={isZenMode}
+                    zenModeRange={zenModeRange}
                   />
                 ) : (
                   <div className="editor-empty">
@@ -560,6 +615,8 @@ export default function App() {
                     onChange={handleChange}
                     onSave={handleSave}
                     editorRef={tiptapEditorRef}
+                    zenMode={isZenMode}
+                    zenModeRange={zenModeRange}
                   />
                 ) : (
                   <div className="editor-empty">
@@ -582,6 +639,9 @@ export default function App() {
                       onCursorChange={setCursorPosition}
                       wordWrap={wordWrap}
                       fontSize={fontSize}
+                      typewriterMode={typewriterMode}
+                      zenMode={isZenMode}
+                      zenModeRange={zenModeRange}
                     />
                   ) : (
                     <div className="editor-empty">
@@ -609,6 +669,24 @@ export default function App() {
       <StatusBar />
       <QuickSwitcher />
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {isZenMode && (
+        <>
+          <div className="zen-mode-hint" onClick={toggleZenMode} title="点击退出专注模式">
+            Ctrl+\ 退出专注模式
+          </div>
+          <div className="zen-mode-win-controls">
+            <button className="win-btn win-minimize" onClick={() => import("@tauri-apps/api/window").then(w => w.getCurrentWindow().minimize())} title="最小化">
+              <svg width="8" height="1" viewBox="0 0 8 1"><rect width="8" height="1" fill="currentColor"/></svg>
+            </button>
+            <button className="win-btn win-maximize" onClick={() => import("@tauri-apps/api/window").then(w => w.getCurrentWindow().toggleMaximize())} title="最大化">
+              <svg width="8" height="8" viewBox="0 0 8 8"><rect x="0.5" y="0.5" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="1"/></svg>
+            </button>
+            <button className="win-btn win-close" onClick={() => import("@tauri-apps/api/window").then(w => w.getCurrentWindow().close())} title="关闭">
+              <svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 1L7 7M7 1L1 7" stroke="currentColor" strokeWidth="1"/></svg>
+            </button>
+          </div>
+        </>
+      )}
       {aboutOpen && (
         <div className="settings-overlay" onClick={() => setAboutOpen(false)}>
           <div className="settings-dialog" onClick={(e) => e.stopPropagation()} style={{ width: 380 }}>
@@ -618,7 +696,7 @@ export default function App() {
             </div>
             <div className="settings-body" style={{ textAlign: "center", padding: "24px 20px" }}>
               <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text-heading)", marginBottom: 4 }}>ExDao Editor</p>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>轻量级 Markdown 编辑器 v0.1.0</p>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>轻量级 Markdown 编辑器 v0.3.0</p>
               <div style={{ textAlign: "left", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.8 }}>
                 <p>基于 Tauri 2 + React 18 + CodeMirror 6</p>
                 <p>支持 WikiLink、KaTeX 数学公式、代码高亮</p>

@@ -1,14 +1,14 @@
 import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from "react";
-import { EditorState, Compartment } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, rectangularSelection } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { EditorState, Compartment, StateEffect } from "@codemirror/state";
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, rectangularSelection, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from "@codemirror/view";
+import { defaultKeymap, history, historyKeymap, undo as cmUndo, redo as cmRedo } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle, indentOnInput, bracketMatching, foldGutter, foldKeymap } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { searchKeymap, highlightSelectionMatches, openSearchPanel } from "@codemirror/search";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { invoke } from "@tauri-apps/api/core";
 import { useStore } from "../lib/store";
+import { invoke } from "@tauri-apps/api/core";
 
 const editorTheme = EditorView.theme({
   "&": {
@@ -16,10 +16,14 @@ const editorTheme = EditorView.theme({
     fontSize: "15px",
     fontFamily: "var(--font-mono)",
     backgroundColor: "var(--bg-primary)",
+    maxWidth: "100%",
+    overflow: "hidden",
   },
   ".cm-content": {
     caretColor: "var(--accent)",
-    padding: "16px 0",
+    padding: "16px 16px",
+    wordBreak: "break-word",
+    overflowWrap: "break-word",
   },
   ".cm-cursor, .cm-dropCursor": {
     borderLeftColor: "var(--accent)",
@@ -66,6 +70,7 @@ const editorTheme = EditorView.theme({
   },
   ".cm-scroller": {
     overflow: "auto",
+    overflowX: "hidden",
   },
 });
 
@@ -88,6 +93,8 @@ const markdownHighlighting = HighlightStyle.define([
 
 export interface EditorHandle {
   scrollToLine: (line: number) => void;
+  undo: () => void;
+  redo: () => void;
 }
 
 interface CodeMirrorEditorProps {
@@ -99,12 +106,60 @@ interface CodeMirrorEditorProps {
   onCursorChange?: (pos: { line: number; column: number }) => void;
   wordWrap?: boolean;
   fontSize?: number;
+  typewriterMode?: boolean;
+  zenMode?: boolean;
+  zenModeRange?: number;
 }
 
 const wordWrapCompartment = new Compartment();
+const typewriterCompartment = new Compartment();
+const zenModeCompartment = new Compartment();
+
+const zenModeTheme = EditorView.theme({
+  ".cm-zen-dim": {
+    opacity: "0.2",
+    transition: "opacity 0.2s",
+  },
+});
+
+function createZenModePlugin(range: number) {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      constructor(view: EditorView) {
+        this.decorations = this.buildDecorations(view);
+      }
+      update(update: ViewUpdate) {
+        if (update.docChanged || update.selectionSet || update.viewportChanged) {
+          this.decorations = this.buildDecorations(update.view);
+        }
+      }
+      buildDecorations(view: EditorView): DecorationSet {
+        const cursorLine = view.state.doc.lineAt(view.state.selection.main.head).number;
+        const decorations: any[] = [];
+        for (const { from, to } of view.visibleRanges) {
+          const startLine = view.state.doc.lineAt(from).number;
+          const endLine = view.state.doc.lineAt(to).number;
+          for (let i = startLine; i <= endLine; i++) {
+            if (Math.abs(i - cursorLine) > range) {
+              const line = view.state.doc.line(i);
+              decorations.push(
+                Decoration.line({ class: "cm-zen-dim" }).range(line.from, line.from)
+              );
+            }
+          }
+        }
+        return Decoration.set(decorations);
+      }
+    },
+    {
+      decorations: (v) => v.decorations,
+    }
+  );
+}
 
 export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
-  function CodeMirrorEditor({ doc, onChange, onScroll, onSave, onCursorChange, wordWrap, fontSize = 15 }, ref) {
+  function CodeMirrorEditor({ doc, onChange, onScroll, onSave, onCursorChange, wordWrap, fontSize = 15, typewriterMode = false, zenMode = false, zenModeRange = 5 }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onChangeRef = useRef(onChange);
@@ -130,7 +185,21 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
       view.focus();
     }, []);
 
-    useImperativeHandle(ref, () => ({ scrollToLine }), [scrollToLine]);
+    const undo = useCallback(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      cmUndo({ state: view.state, dispatch: view.dispatch });
+      view.focus();
+    }, []);
+
+    const redo = useCallback(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      cmRedo({ state: view.state, dispatch: view.dispatch });
+      view.focus();
+    }, []);
+
+    useImperativeHandle(ref, () => ({ scrollToLine, undo, redo }), [scrollToLine, undo, redo]);
 
     useEffect(() => {
       if (!containerRef.current) return;
@@ -155,6 +224,25 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
         fontSizeCompartment.current.of(EditorView.theme({
           "&": { fontSize: `${fontSize}px` },
         })),
+        typewriterCompartment.of(typewriterMode ? [
+          EditorView.updateListener.of((update) => {
+            if (update.selectionSet) {
+              const view = update.view;
+              const pos = view.state.selection.main.head;
+              const line = view.state.doc.lineAt(pos);
+              const lineBlock = view.lineBlockAt(line.from);
+              const viewHeight = view.dom.clientHeight;
+              const scrollTop = view.scrollDOM.scrollTop;
+              const lineCenter = lineBlock.top + lineBlock.height / 2;
+              const targetScroll = scrollTop + lineCenter - viewHeight / 2;
+              view.scrollDOM.scrollTo({ top: targetScroll, behavior: "smooth" });
+            }
+          }),
+        ] : []),
+        zenModeCompartment.of(zenMode ? [
+          createZenModePlugin(zenModeRange),
+          zenModeTheme,
+        ] : []),
         keymap.of([
           ...defaultKeymap,
           ...historyKeymap,
@@ -281,6 +369,38 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
         ),
       });
     }, [fontSize]);
+
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      const typewriterExtension = typewriterMode ? [
+        EditorView.updateListener.of((update) => {
+          if (update.selectionSet) {
+            const v = update.view;
+            const pos = v.state.selection.main.head;
+            const line = v.state.doc.lineAt(pos);
+            const lineBlock = v.lineBlockAt(line.from);
+            const viewHeight = v.dom.clientHeight;
+            const scrollTop = v.scrollDOM.scrollTop;
+            const lineCenter = lineBlock.top + lineBlock.height / 2;
+            const targetScroll = scrollTop + lineCenter - viewHeight / 2;
+            v.scrollDOM.scrollTo({ top: targetScroll, behavior: "smooth" });
+          }
+        }),
+      ] : [];
+      view.dispatch({
+        effects: typewriterCompartment.reconfigure(typewriterExtension),
+      });
+    }, [typewriterMode]);
+
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      const zenExtension = zenMode ? [createZenModePlugin(zenModeRange), zenModeTheme] : [];
+      view.dispatch({
+        effects: zenModeCompartment.reconfigure(zenExtension),
+      });
+    }, [zenMode, zenModeRange]);
 
     useEffect(() => {
       const view = viewRef.current;

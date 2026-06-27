@@ -86,6 +86,8 @@ interface AppState {
   isZenMode: boolean;
   formatOnSave: boolean;
   customCss: string;
+  typewriterMode: boolean;
+  zenModeRange: number;
 
   openFolder: (path: string) => Promise<void>;
   createUntitled: () => Promise<void>;
@@ -124,6 +126,8 @@ interface AppState {
   toggleZenMode: () => void;
   setFormatOnSave: (enabled: boolean) => void;
   setCustomCss: (css: string) => void;
+  toggleTypewriterMode: () => void;
+  setZenModeRange: (range: number) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -145,7 +149,7 @@ export const useStore = create<AppState>((set, get) => ({
   browseRoot: null,
   browseTree: null,
   toolbarOpen: true,
-  wordWrap: false,
+  wordWrap: true,
   editorWidth: Number(localStorage.getItem("exdao_editor_width")) || 720,
   theme: localStorage.getItem("exdao_theme") || "system",
   mdStyle: localStorage.getItem("exdao_mdstyle") || "default",
@@ -159,6 +163,8 @@ export const useStore = create<AppState>((set, get) => ({
   isZenMode: false,
   formatOnSave: localStorage.getItem("exdao_format_on_save") === "true",
   customCss: localStorage.getItem("exdao_custom_css") || "",
+  typewriterMode: localStorage.getItem("exdao_typewriter") === "true",
+  zenModeRange: Number(localStorage.getItem("exdao_zen_range")) || 5,
 
   openFolder: async (path: string) => {
     const tree = await invoke<FileNode>("open_vault", { path });
@@ -457,6 +463,18 @@ export const useStore = create<AppState>((set, get) => ({
   setCustomCss: (css: string) => {
     localStorage.setItem("exdao_custom_css", css);
     set({ customCss: css });
+  },
+
+  toggleTypewriterMode: () => {
+    const next = !get().typewriterMode;
+    localStorage.setItem("exdao_typewriter", String(next));
+    set({ typewriterMode: next });
+  },
+
+  setZenModeRange: (range: number) => {
+    const clamped = Math.min(20, Math.max(1, range));
+    localStorage.setItem("exdao_zen_range", String(clamped));
+    set({ zenModeRange: clamped });
   },
 }));
 

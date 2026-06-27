@@ -1,0 +1,40 @@
+#!/bin/bash
+set -e
+
+APP_ID="com.exdao-editor.app"
+DATA_DIR="$HOME/.local/share/$APP_ID"
+
+# 恢复备份的设置
+if [ -f /tmp/exdao-editor-backup-path ]; then
+    BACKUP_DIR=$(cat /tmp/exdao-editor-backup-path)
+
+    if [ -d "$BACKUP_DIR" ]; then
+        echo "正在恢复设置..."
+
+        # 恢复应用数据
+        if [ -d "$BACKUP_DIR/data" ]; then
+            mkdir -p "$DATA_DIR"
+            # 恢复 localstorage
+            if [ -d "$BACKUP_DIR/data/localstorage" ]; then
+                mkdir -p "$DATA_DIR/localstorage"
+                cp -r "$BACKUP_DIR/data/localstorage/"* "$DATA_DIR/localstorage/" 2>/dev/null || true
+                echo "已恢复 localStorage 设置"
+            fi
+            # 恢复其他数据文件
+            for item in "$BACKUP_DIR/data"/*; do
+                name=$(basename "$item")
+                if [ "$name" != "localstorage" ]; then
+                    cp -r "$item" "$DATA_DIR/" 2>/dev/null || true
+                fi
+            done
+        fi
+
+        echo "设置恢复完成！"
+
+        # 清理
+        rm -rf "$BACKUP_DIR"
+        rm -f /tmp/exdao-editor-backup-path
+    fi
+fi
+
+echo "ExDao Editor v$(dpkg -s exdao-editor 2>/dev/null | grep '^Version:' | awk '{print $2}') 安装完成"

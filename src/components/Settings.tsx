@@ -24,6 +24,8 @@ export function Settings({ open, onClose }: SettingsProps) {
     const path = await selectVaultDirectory();
     if (path) {
       await openFolder(path);
+      useStore.setState({ sidebarTab: "vault", sidebarOpen: true });
+      onClose();
     }
   };
 
