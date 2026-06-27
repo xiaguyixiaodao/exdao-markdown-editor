@@ -109,6 +109,7 @@ interface CodeMirrorEditorProps {
   typewriterMode?: boolean;
   zenMode?: boolean;
   zenModeRange?: number;
+  spellCheck?: boolean;
 }
 
 const wordWrapCompartment = new Compartment();
@@ -159,7 +160,7 @@ function createZenModePlugin(range: number) {
 }
 
 export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
-  function CodeMirrorEditor({ doc, onChange, onScroll, onSave, onCursorChange, wordWrap, fontSize = 15, typewriterMode = false, zenMode = false, zenModeRange = 5 }, ref) {
+  function CodeMirrorEditor({ doc, onChange, onScroll, onSave, onCursorChange, wordWrap, fontSize = 15, typewriterMode = false, zenMode = false, zenModeRange = 5, spellCheck = false }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onChangeRef = useRef(onChange);
@@ -417,6 +418,7 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
       <div
         ref={containerRef}
         style={{ height: "100%", overflow: "hidden" }}
+        spellCheck={spellCheck}
       />
     );
   }

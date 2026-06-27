@@ -14,6 +14,7 @@ export function Preview({ sourceScrollRatio, onSourceScroll, onNavigate, onEdit 
   const fileContents = useStore((s) => s.fileContents);
   const unsavedChanges = useStore((s) => s.unsavedChanges);
   const previewScale = useStore((s) => s.previewScale);
+  const markdownFormat = useStore((s) => s.markdownFormat);
   const containerRef = useRef<HTMLDivElement>(null);
   const syncingRef = useRef(false);
   const [debouncedContent, setDebouncedContent] = useState("");
@@ -34,7 +35,7 @@ export function Preview({ sourceScrollRatio, onSourceScroll, onNavigate, onEdit 
     };
   }, [rawContent]);
 
-  const html = useMemo(() => renderMarkdown(debouncedContent), [debouncedContent]);
+  const html = useMemo(() => renderMarkdown(debouncedContent, undefined, markdownFormat), [debouncedContent, markdownFormat]);
 
   useEffect(() => {
     if (sourceScrollRatio === undefined || !containerRef.current || syncingRef.current) return;

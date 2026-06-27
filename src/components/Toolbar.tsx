@@ -3,7 +3,7 @@ import { useStore } from "../lib/store";
 import { snippets } from "../lib/snippets";
 
 interface ToolDef {
-  label: string;
+  icon: string;
   title: string;
   insert?: string;
   wrap?: [string, string];
@@ -11,26 +11,24 @@ interface ToolDef {
 }
 
 const tools: ToolDef[] = [
-  { label: "H1", title: "一级标题", block: "# " },
-  { label: "H2", title: "二级标题", block: "## " },
-  { label: "H3", title: "三级标题", block: "### " },
-  { label: "B", title: "粗体", wrap: ["**", "**"] },
-  { label: "I", title: "斜体", wrap: ["*", "*"] },
-  { label: "S", title: "删除线", wrap: ["~~", "~~"] },
-  { label: "`", title: "行内代码", wrap: ["`", "`"] },
-  { label: "</>", title: "代码块", block: "```\n" },
-  { label: "\u2014", title: "引用", block: "> " },
-  { label: "\u2022", title: "无序列表", block: "- " },
-  { label: "1.", title: "有序列表", block: "1. " },
-  { label: "\u2610", title: "任务列表", block: "- [ ] " },
-  { label: "\u2194", title: "分割线", block: "\n---\n" },
-  { label: "\u2197", title: "链接", insert: "[链接文字](url)" },
-  { label: "\u25a3", title: "图片", insert: "![alt](url)" },
-  { label: "$", title: "数学公式", insert: "$$\n\n$$" },
-  { label: "$$", title: "行内数学", wrap: ["$", "$"] },
-  { label: "|", title: "表格", insert: "| 列1 | 列2 | 列3 |\n|------|------|------|\n|      |      |      |\n|      |      |      |" },
-  { label: "✓", title: "复选框列表", block: "- [x] " },
-  { label: "📝", title: "脚注", insert: "[^1]\n\n[^1]: 脚注内容" },
+  { icon: "a", title: "一级标题", block: "# " },
+  { icon: "A", title: "二级标题", block: "## " },
+  { icon: "H", title: "三级标题", block: "### " },
+  { icon: "B", title: "粗体", wrap: ["**", "**"] },
+  { icon: "I", title: "斜体", wrap: ["*", "*"] },
+  { icon: "S", title: "删除线", wrap: ["~~", "~~"] },
+  { icon: "<>", title: "行内代码", wrap: ["`", "`"] },
+  { icon: "{ }", title: "代码块", block: "```\n" },
+  { icon: "\u201C", title: "引用", block: "> " },
+  { icon: "\u2022", title: "无序列表", block: "- " },
+  { icon: "\u23F8", title: "有序列表", block: "1. " },
+  { icon: "\u2610", title: "任务列表", block: "- [ ] " },
+  { icon: "\u2194", title: "分割线", block: "\n---\n" },
+  { icon: "\u2197", title: "链接", insert: "[链接文字](url)" },
+  { icon: "\u25A3", title: "图片", insert: "![alt](url)" },
+  { icon: "$", title: "数学公式", insert: "$$\n\n$$" },
+  { icon: "f(x)", title: "行内数学", wrap: ["$", "$"] },
+  { icon: "\u2261", title: "表格", insert: "| 列1 | 列2 | 列3 |\n|------|------|------|\n|      |      |      |\n|      |      |      |" },
 ];
 
 export function Toolbar() {
@@ -76,14 +74,14 @@ export function Toolbar() {
 
   return (
     <div className="toolbar">
-      {tools.map((t) => (
+      {tools.map((t, i) => (
         <button
           key={t.title}
           className="toolbar-btn"
           title={t.title}
           onClick={() => apply(t)}
         >
-          {t.label}
+          {t.icon}
         </button>
       ))}
       <div className="toolbar-separator" />
@@ -93,7 +91,7 @@ export function Toolbar() {
           title="插入代码片段"
           onClick={() => setSnippetOpen(!snippetOpen)}
         >
-          {"{}"}
+          {"{ }"}
         </button>
         {snippetOpen && (
           <div className="snippet-dropdown">

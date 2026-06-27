@@ -12,8 +12,10 @@ export interface FileNode {
 export type EditorMode = "source" | "preview" | "split";
 
 const RECENT_KEY = "exdao_recent_vaults";
+const RECENT_FILES_KEY = "exdao_recent_files";
 const SESSION_KEY = "exdao_session";
 const MAX_RECENT = 10;
+const MAX_RECENT_FILES = 15;
 
 function loadRecent(): string[] {
   try {
@@ -48,10 +50,32 @@ function addRecent(path: string) {
   saveRecent(list);
 }
 
+function loadRecentFiles(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_FILES_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentFiles(list: string[]) {
+  localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(list));
+}
+
+function addRecentFile(path: string) {
+  if (path.startsWith("__untitled__/")) return;
+  const list = loadRecentFiles().filter((p) => p !== path);
+  list.unshift(path);
+  if (list.length > MAX_RECENT_FILES) list.length = MAX_RECENT_FILES;
+  saveRecentFiles(list);
+}
+
 interface CursorPosition {
   line: number;
   column: number;
 }
+
+export type MarkdownFormat = "pandoc" | "commonmark" | "gfm" | "multimarkdown" | "plain";
 
 interface AppState {
   rootPath: string | null;
@@ -68,12 +92,14 @@ interface AppState {
   outlineOpen: boolean;
   quickSwitcherOpen: boolean;
   recentVaults: string[];
+  recentFiles: string[];
   savedToDisk: Set<string>;
   browseRoot: string | null;
   browseTree: FileNode | null;
   toolbarOpen: boolean;
   wordWrap: boolean;
   editorWidth: number;
+  sidebarWidth: number;
   theme: string;
   mdStyle: string;
   cursorPosition: CursorPosition;
@@ -88,6 +114,10 @@ interface AppState {
   customCss: string;
   typewriterMode: boolean;
   zenModeRange: number;
+  spellCheck: boolean;
+  autoHideHeader: boolean;
+  largeText: boolean;
+  markdownFormat: MarkdownFormat;
 
   openFolder: (path: string) => Promise<void>;
   createUntitled: () => Promise<void>;
@@ -111,6 +141,7 @@ interface AppState {
   toggleToolbar: () => void;
   toggleWordWrap: () => void;
   setEditorWidth: (width: number) => void;
+  setSidebarWidth: (width: number) => void;
   toggleQuickSwitcher: () => void;
   setTheme: (name: string) => void;
   setMdStyle: (name: string) => void;
@@ -128,6 +159,10 @@ interface AppState {
   setCustomCss: (css: string) => void;
   toggleTypewriterMode: () => void;
   setZenModeRange: (range: number) => void;
+  setSpellCheck: (enabled: boolean) => void;
+  setAutoHideHeader: (enabled: boolean) => void;
+  setLargeText: (enabled: boolean) => void;
+  setMarkdownFormat: (format: MarkdownFormat) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -138,19 +173,21 @@ export const useStore = create<AppState>((set, get) => ({
   fileContents: {},
   unsavedChanges: {},
   editorMode: "preview",
-  sidebarOpen: false,
+  sidebarOpen: true,
   sidebarTab: "vault",
   managerPath: null,
   managerTree: null,
   outlineOpen: false,
   quickSwitcherOpen: false,
   recentVaults: loadRecent(),
+  recentFiles: loadRecentFiles(),
   savedToDisk: new Set<string>(),
   browseRoot: null,
   browseTree: null,
   toolbarOpen: true,
   wordWrap: true,
   editorWidth: Number(localStorage.getItem("exdao_editor_width")) || 720,
+  sidebarWidth: Number(localStorage.getItem("exdao_sidebar_width")) || 250,
   theme: localStorage.getItem("exdao_theme") || "system",
   mdStyle: localStorage.getItem("exdao_mdstyle") || "default",
   cursorPosition: { line: 1, column: 1 },
@@ -165,6 +202,13 @@ export const useStore = create<AppState>((set, get) => ({
   customCss: localStorage.getItem("exdao_custom_css") || "",
   typewriterMode: localStorage.getItem("exdao_typewriter") === "true",
   zenModeRange: Number(localStorage.getItem("exdao_zen_range")) || 5,
+  spellCheck: localStorage.getItem("exdao_spell_check") === "true",
+  autoHideHeader: (() => {
+    localStorage.removeItem("exdao_auto_hide_header");
+    return false;
+  })(),
+  largeText: localStorage.getItem("exdao_large_text") === "true",
+  markdownFormat: (localStorage.getItem("exdao_markdown_format") as MarkdownFormat) || "pandoc",
 
   openFolder: async (path: string) => {
     const tree = await invoke<FileNode>("open_vault", { path });
@@ -197,10 +241,12 @@ export const useStore = create<AppState>((set, get) => ({
     const { openFiles, fileContents } = get();
     if (!openFiles.includes(path)) {
       const content = await invoke<string>("read_file", { path });
+      addRecentFile(path);
       set({
         openFiles: [...openFiles, path],
         fileContents: { ...fileContents, [path]: content },
         activeFile: path,
+        recentFiles: loadRecentFiles(),
       });
     } else {
       set({ activeFile: path });
@@ -393,6 +439,13 @@ export const useStore = create<AppState>((set, get) => ({
     localStorage.setItem("exdao_editor_width", String(width));
     set({ editorWidth: width });
   },
+
+  setSidebarWidth: (width) => {
+    const clamped = Math.min(500, Math.max(150, width));
+    localStorage.setItem("exdao_sidebar_width", String(clamped));
+    set({ sidebarWidth: clamped });
+  },
+
   setTheme: (name: string) => {
     localStorage.setItem("exdao_theme", name);
     set({ theme: name });
@@ -475,6 +528,26 @@ export const useStore = create<AppState>((set, get) => ({
     const clamped = Math.min(20, Math.max(1, range));
     localStorage.setItem("exdao_zen_range", String(clamped));
     set({ zenModeRange: clamped });
+  },
+
+  setSpellCheck: (enabled: boolean) => {
+    localStorage.setItem("exdao_spell_check", String(enabled));
+    set({ spellCheck: enabled });
+  },
+
+  setAutoHideHeader: (enabled: boolean) => {
+    localStorage.setItem("exdao_auto_hide_header", String(enabled));
+    set({ autoHideHeader: enabled });
+  },
+
+  setLargeText: (enabled: boolean) => {
+    localStorage.setItem("exdao_large_text", String(enabled));
+    set({ largeText: enabled });
+  },
+
+  setMarkdownFormat: (format: MarkdownFormat) => {
+    localStorage.setItem("exdao_markdown_format", format);
+    set({ markdownFormat: format });
   },
 }));
 

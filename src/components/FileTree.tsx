@@ -184,7 +184,6 @@ const TreeNode = memo(function TreeNode({
 
 export function FileTree() {
   const openFile = useStore((s) => s.openFile);
-  const sidebarOpen = useStore((s) => s.sidebarOpen);
   const sidebarTab = useStore((s) => s.sidebarTab);
   const managerPath = useStore((s) => s.managerPath);
   const managerTree = useStore((s) => s.managerTree);
@@ -231,10 +230,8 @@ export function FileTree() {
     }
   }, [handleManagerInputConfirm]);
 
-  if (!sidebarOpen) return null;
-
   return (
-    <div className="file-tree">
+    <div className="file-tree-inner">
       <div className="file-tree-tabs">
         <button
           className={`file-tree-tab ${sidebarTab === "vault" ? "file-tree-tab-active" : ""}`}

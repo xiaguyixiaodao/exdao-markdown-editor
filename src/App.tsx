@@ -49,6 +49,7 @@ export default function App() {
   const sidebarOpen = useStore((s) => s.sidebarOpen);
   const wordWrap = useStore((s) => s.wordWrap);
   const editorWidth = useStore((s) => s.editorWidth);
+  const spellCheck = useStore((s) => s.spellCheck);
   const updateContent = useStore((s) => s.updateContent);
   const saveFile = useStore((s) => s.saveFile);
   const openFile = useStore((s) => s.openFile);
@@ -78,6 +79,7 @@ export default function App() {
   const setCursorPosition = useStore((s) => s.setCursorPosition);
   const findReplaceOpen = useStore((s) => s.findReplaceOpen);
   const toggleFindReplace = useStore((s) => s.toggleFindReplace);
+  const recentFiles = useStore((s) => s.recentFiles);
   const fontSize = useStore((s) => s.fontSize);
   const setFontSize = useStore((s) => s.setFontSize);
   const previewScale = useStore((s) => s.previewScale);
@@ -89,9 +91,12 @@ export default function App() {
   const isZenMode = useStore((s) => s.isZenMode);
   const zenModeRange = useStore((s) => s.zenModeRange);
   const setZenModeRange = useStore((s) => s.setZenModeRange);
+  const sidebarWidth = useStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useStore((s) => s.setSidebarWidth);
   const [splitRatio, setSplitRatio] = useState(50);
   const splitDraggingRef = useRef(false);
   const splitContainerRef = useRef<HTMLDivElement>(null);
+  const sidebarDraggingRef = useRef(false);
 
   const handleWysiwygUpdate = useCallback(({ editor: e }: { editor: any }) => {
     const md = htmlToMarkdown(e.getHTML());
@@ -272,6 +277,8 @@ export default function App() {
   }, [vaultPath, openFiles, activeFile]);
 
   const customCss = useStore((s) => s.customCss);
+  const largeText = useStore((s) => s.largeText);
+  const autoHideHeader = useStore((s) => s.autoHideHeader);
 
   useEffect(() => {
     let style = document.getElementById("exdao-custom-css") as HTMLStyleElement;
@@ -282,6 +289,15 @@ export default function App() {
     }
     style.textContent = customCss;
   }, [customCss]);
+
+  useEffect(() => {
+    if (largeText) {
+      document.documentElement.style.setProperty("--editor-width", "560px");
+      document.documentElement.style.fontSize = "17px";
+    } else {
+      document.documentElement.style.fontSize = "";
+    }
+  }, [largeText]);
 
   useEffect(() => {
     if (!autoSave || !activeFile) return;
@@ -323,6 +339,32 @@ export default function App() {
     document.addEventListener("mouseup", handleMouseUp);
   }, [splitRatio]);
 
+  const handleSidebarMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    sidebarDraggingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!sidebarDraggingRef.current) return;
+      const dx = ev.clientX - startX;
+      setSidebarWidth(startWidth + dx);
+    };
+
+    const handleMouseUp = () => {
+      sidebarDraggingRef.current = false;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, [sidebarWidth, setSidebarWidth]);
+
   const handleEditorScroll = useCallback(
     (info: { scrollTop: number; scrollHeight: number; clientHeight: number }) => {
       if (editorMode !== "split") return;
@@ -337,7 +379,26 @@ export default function App() {
   }, []);
 
   const handleJumpToLine = useCallback((line: number) => {
-    editorRef.current?.scrollToLine(line);
+    if (editorRef.current) {
+      editorRef.current.scrollToLine(line);
+    } else {
+      const container = document.querySelector(".preview-container");
+      if (container) {
+        const blocks = container.querySelectorAll<HTMLElement>("[data-line]");
+        let bestEl: HTMLElement | null = null;
+        let bestLine = -1;
+        for (const block of blocks) {
+          const ln = Number(block.dataset.line);
+          if (ln <= line && ln > bestLine) {
+            bestLine = ln;
+            bestEl = block;
+          }
+        }
+        if (bestEl) {
+          bestEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+    }
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -375,6 +436,16 @@ export default function App() {
       items: [
         { label: "新建文档", shortcut: "Ctrl+N", action: () => createUntitled() },
         { label: "打开仓库", shortcut: "Ctrl+O", action: handleOpenFolder },
+        { divider: true as const, label: "" },
+        {
+          label: "最近打开",
+          children: recentFiles.length > 0
+            ? recentFiles.map((p) => ({
+                label: p.split(/[/\\]/).pop() || p,
+                action: () => openFile(p),
+              }))
+            : [{ label: "无最近文件", action: () => {} }],
+        },
         { divider: true as const, label: "" },
         { label: "保存", shortcut: "Ctrl+S", action: handleSave, disabled: !activeFile },
         { label: "另存为...", shortcut: "Ctrl+Shift+S", action: () => saveFileAsDialog(), disabled: !activeFile },
@@ -558,18 +629,21 @@ export default function App() {
     },
   ];
 
-  if (!vaultPath && openFiles.length === 0 && !sidebarOpen) {
-    return <>
-      <Welcome onOpenSettings={() => setSettingsOpen(true)} />
-      <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-    </>;
-  }
-
   return (
-    <div className={`app-layout ${isZenMode ? "zen-mode" : ""}`}>
+    <div className={`app-layout ${isZenMode ? "zen-mode" : ""} ${largeText ? "large-text" : ""} ${autoHideHeader ? "auto-hide-header" : ""}`}>
       <MenuBar menus={menus} />
       <div className="app-body">
-        <FileTree />
+        {sidebarOpen && (
+          <>
+            <div className="file-tree" style={{ width: sidebarWidth, minWidth: sidebarWidth }}>
+              <FileTree />
+            </div>
+            <div
+              className="sidebar-resize-handle"
+              onMouseDown={handleSidebarMouseDown}
+            />
+          </>
+        )}
         <div className="editor-area">
           <TabBar />
           {toolbarOpen && editorMode === "source" && <Toolbar />}
@@ -580,7 +654,7 @@ export default function App() {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
           >
-            {findReplaceOpen && editorMode !== "preview" && (
+            {findReplaceOpen && (
               <FindAndReplace isOpen={findReplaceOpen} onClose={toggleFindReplace} />
             )}
             {editorMode === "source" && (
@@ -599,6 +673,7 @@ export default function App() {
                     typewriterMode={typewriterMode}
                     zenMode={isZenMode}
                     zenModeRange={zenModeRange}
+                    spellCheck={spellCheck}
                   />
                 ) : (
                   <div className="editor-empty">
@@ -642,6 +717,7 @@ export default function App() {
                       typewriterMode={typewriterMode}
                       zenMode={isZenMode}
                       zenModeRange={zenModeRange}
+                      spellCheck={spellCheck}
                     />
                   ) : (
                     <div className="editor-empty">
@@ -689,13 +765,13 @@ export default function App() {
       )}
       {aboutOpen && (
         <div className="settings-overlay" onClick={() => setAboutOpen(false)}>
-          <div className="settings-dialog" onClick={(e) => e.stopPropagation()} style={{ width: 380 }}>
+          <div className="settings-dialog pref-dialog" onClick={(e) => e.stopPropagation()} style={{ width: 360 }}>
             <div className="settings-header">
-              <h2>关于 ExDao Editor</h2>
+              <h2>关于</h2>
               <button className="settings-close" onClick={() => setAboutOpen(false)}>&times;</button>
             </div>
             <div className="settings-body" style={{ textAlign: "center", padding: "24px 20px" }}>
-              <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text-heading)", marginBottom: 4 }}>ExDao Editor</p>
+              <p style={{ fontSize: 16, fontWeight: 600, color: "var(--text-heading)", marginBottom: 4 }}>ExDao Editor</p>
               <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>轻量级 Markdown 编辑器 v0.3.0</p>
               <div style={{ textAlign: "left", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.8 }}>
                 <p>基于 Tauri 2 + React 18 + CodeMirror 6</p>

@@ -59,27 +59,9 @@ export function StatusBar() {
   return (
     <div className="status-bar">
       <div className="status-left">
-        {activeFile && (
-          <>
-            <span className="status-item">
-              {getFileName(activeFile)}
-            </span>
-            {isDirty && <span className="status-dot">●</span>}
-          </>
-        )}
         {activeFile && editorMode !== "preview" && (
           <span className="status-item">
             行 {cursorPosition.line}, 列 {cursorPosition.column}
-          </span>
-        )}
-        {activeFile && (
-          <span className="status-item">
-            {stats.chars} 字符 / {stats.words} 词 / {stats.lines} 行
-          </span>
-        )}
-        {activeFile && stats.readTime && (
-          <span className="status-item">
-            阅读 {stats.readTime}
           </span>
         )}
         {activeFile && tags.length > 0 && (
@@ -114,6 +96,11 @@ export function StatusBar() {
           ))}
         </div>
         {activeFile && (
+          <span className="status-word-count">
+            {stats.words} 个词语
+          </span>
+        )}
+        {activeFile && (
           <button
             className="status-item status-save"
             onClick={() => saveFile(activeFile)}
@@ -121,11 +108,6 @@ export function StatusBar() {
           >
             {isDirty ? "保存" : "已保存"}
           </button>
-        )}
-        {activeFile && !isDirty && saveDisplay && (
-          <span className="status-item status-save-time">
-            {saveDisplay}
-          </span>
         )}
       </div>
     </div>

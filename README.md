@@ -1,6 +1,6 @@
 # ExDao Editor
 
-轻量级 Markdown 编辑器 | Lightweight Markdown Editor v0.3.0
+轻量级 Markdown 编辑器 | Lightweight Markdown Editor v0.4.0
 
 基于 Tauri 2 + React 18 + CodeMirror 6 构建，专注于编辑体验的本地 Markdown 编辑器。
 
@@ -20,9 +20,9 @@ Built with Tauri 2 + React 18 + CodeMirror 6, a local-first Markdown editor focu
 - KaTeX 数学公式渲染（行内 `$...$` + 块级 `$$...$$`）
 - 代码块语法高亮 + 一键复制
 - 文件树浏览 + 搜索过滤
-- 大纲导航（按标题跳转）
+- 大纲导航（按标题跳转，所有模式下均可滚动定位）
 - 快速切换器（Ctrl+K 模糊搜索文件）
-- 查找替换（Ctrl+F / Ctrl+H）
+- 查找替换（Ctrl+F / Ctrl+H，所有编辑模式下可用）
 - 标签系统（#标签 语法，状态栏显示）
 
 ### 编辑体验 / Editing Experience
@@ -32,12 +32,28 @@ Built with Tauri 2 + React 18 + CodeMirror 6, a local-first Markdown editor focu
 - **字体缩放** — Ctrl+/-/0 调整字体大小，持久化保存
 - **内容居中** — 编辑器宽度可调（400-1920px），内容居中显示
 
+### 标题栏 / Header Bar
+- **直接操作按钮** — 打开(O)、保存(S) 一键操作
+- **下拉菜单** — 打开按钮下拉显示最近文件，保存按钮下拉显示另存为
+- **窗口控制** — 新建文件、搜索、大纲、菜单、最小化、最大化、关闭
+- **文件名显示** — 居中显示当前文件名，未保存标记 ●
+
+### 首选项 / Preferences
+- **检查拼写** — 启用浏览器原生拼写检查
+- **自动隐藏标题栏** — 输入时自动隐藏标题栏和状态栏
+- **大号文本** — 减小边界宽度并增大文字大小
+- **输入格式** — 选择 Markdown 解析风格（Pandoc / CommonMark / GFM / MultiMarkdown / 纯文本）
+- **自动保存** — 修改后自动保存文件
+- **保存时格式化** — 保存时自动格式化 Markdown 内容
+- **编辑器宽度** — 设置编辑区域的最大宽度
+- **仓库设置** — 选择/更换/移除仓库
+- **自定义样式** — 输入自定义 CSS 代码，实时生效
+
 ### 工具栏 / Toolbar
 - 标题 H1-H3、粗体、斜体、删除线、行内代码
 - 代码块、引用、有序/无序列表、任务列表
 - 链接、图片、数学公式、表格
-- 行内数学、脚注、复选框列表
-- 代码片段插入（15 种语言模板：React、Python、JS、TS、Rust、Go、Java 等）
+- 行内数学、代码片段插入
 
 ### 主题与样式 / Themes & Styles
 - 跟随系统 / 深色 / 浅色 主题
@@ -50,21 +66,17 @@ Built with Tauri 2 + React 18 + CodeMirror 6, a local-first Markdown editor focu
 - 导出为 PDF（在系统浏览器中打开，用户通过浏览器打印保存）
 
 ### 编辑器设置 / Editor Settings
-- 自动保存（可配置，2 秒延迟）
-- 保存时格式化（清理尾部空格、多余空行）
 - 会话恢复（重启后自动恢复打开的文件）
 - 自动换行（默认开启）
 
 ### 窗口管理 / Window Management
-- 无标题栏设计，菜单栏可拖拽
+- 无标题栏设计，标题区域可拖拽
 - 自定义窗口控制按钮（最小化、最大化、关闭）
-- 菜单栏「退出」按钮关闭应用
 - 升级安装时自动保留用户设置
 
 ### 其他 / Others
 - 拖拽 .md 文件到编辑区打开
-- 粘贴剪贴板图片自动保存到仓库
-- 状态栏：行列号 / 字数统计 / 阅读时间 / 上次保存时间
+- 状态栏：词数统计 / 光标位置 / 主题切换 / 编辑模式切换
 - 标签页管理：右键菜单（关闭/关闭其他/关闭全部）、中键关闭、横向滚动
 - 文件树右键菜单：复制路径、复制文件名、新建、重命名、删除
 
@@ -76,7 +88,7 @@ Built with Tauri 2 + React 18 + CodeMirror 6, a local-first Markdown editor focu
 |---|---|
 | **文件** / File | 新建、打开仓库、保存、另存为、关闭、导出 HTML/PDF、关闭应用 |
 | **编辑** / Edit | 撤销、重做、查找、替换、自动换行、保存时格式化 |
-| **视图** / View | 编辑模式、工具栏/侧边栏/大纲、字体缩放、全屏、专注模式、打字机模式、专注范围、主题、样式 |
+| **视图** / View | 编辑模式、工具栏/侧边栏/大纲、字体缩放、全屏、专注模式、打字机模式、专注范围 |
 | **设置** / Settings | 自动保存、编辑器设置、主题、样式 |
 | **帮助** / Help | 快捷键、关于 |
 
@@ -140,59 +152,6 @@ npm run tauri dev
 
 # 构建 / Build
 npm run tauri build
-```
-
----
-
-## 项目结构 / Project Structure
-
-```
-src/
-├── App.tsx                 # 主应用组件 / Main app component
-├── main.tsx                # 入口文件 / Entry point
-├── components/
-│   ├── Editor.tsx          # CodeMirror 6 源码编辑器 / Source editor
-│   ├── WysiwygEditor.tsx   # TipTap WYSIWYG 编辑器 / WYSIWYG editor
-│   ├── Preview.tsx         # Markdown 预览 / Markdown preview
-│   ├── FileTree.tsx        # 文件树 + 搜索 / File tree + search
-│   ├── TabBar.tsx          # 标签栏 / Tab bar
-│   ├── MenuBar.tsx         # 菜单栏 / Menu bar
-│   ├── Toolbar.tsx         # 源码工具栏 / Source toolbar
-│   ├── WysiwygToolbar.tsx  # WYSIWYG 工具栏 / WYSIWYG toolbar
-│   ├── StatusBar.tsx       # 状态栏 / Status bar
-│   ├── Outline.tsx         # 大纲面板 / Outline panel
-│   ├── QuickSwitcher.tsx   # 快速切换器 / Quick switcher
-│   ├── FindAndReplace.tsx  # 查找替换 / Find & replace
-│   ├── Settings.tsx        # 设置对话框 / Settings dialog
-│   ├── Welcome.tsx         # 欢迎页 / Welcome page
-│   ├── ThemeProvider.tsx   # 主题注入 / Theme injection
-│   └── MdStyleProvider.tsx # Markdown 样式注入 / MD style injection
-├── lib/
-│   ├── store.ts            # Zustand 状态管理 / State management
-│   ├── markdown.ts         # Markdown 渲染 + 标签提取 / Render + tags
-│   ├── mdConvert.ts        # Markdown ↔ HTML 转换 / Conversion layer
-│   ├── mdStyles.ts         # 8 种 Markdown 显示样式 / Display styles
-│   ├── themes.ts           # 主题定义 / Theme definitions
-│   ├── export.ts           # HTML 导出 / Export utilities
-│   ├── format.ts           # 保存时格式化 / Format on save
-│   ├── snippets.ts         # 15 种代码片段模板 / Code snippets
-│   └── vault.ts            # Tauri IPC 调用 / Tauri IPC calls
-├── styles/
-│   ├── global.css          # 全局样式 + CM6 主题 / Global + CM6 theme
-│   ├── layout.css          # 布局样式 / Layout styles
-│   └── tiptap.css          # TipTap 编辑器样式 / TipTap editor styles
-└── types/
-    └── markdown-it-task-lists.d.ts
-
-src-tauri/
-├── src/
-│   ├── lib.rs              # Rust 后端命令 / Backend commands
-│   ├── main.rs             # Tauri 入口 / Tauri entry
-│   └── watcher.rs          # 文件监听 / File watcher
-├── deb/
-│   ├── preinst             # 安装前脚本 / Pre-install script
-│   └── postinst            # 安装后脚本 / Post-install script
-└── tauri.conf.json         # Tauri 配置 / Tauri config
 ```
 
 ---
