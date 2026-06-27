@@ -16,8 +16,6 @@ import { FindAndReplace } from "./components/FindAndReplace";
 import { Welcome } from "./components/Welcome";
 import { Settings } from "./components/Settings";
 import { MenuBar } from "./components/MenuBar";
-import { themes } from "./lib/themes";
-import { mdStyles } from "./lib/mdStyles";
 import { saveHtml, exportToPdf } from "./lib/export";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -64,10 +62,6 @@ export default function App() {
   const toggleOutline = useStore((s) => s.toggleOutline);
   const toggleToolbar = useStore((s) => s.toggleToolbar);
   const toggleWordWrap = useStore((s) => s.toggleWordWrap);
-  const setTheme = useStore((s) => s.setTheme);
-  const currentTheme = useStore((s) => s.theme);
-  const setMdStyle = useStore((s) => s.setMdStyle);
-  const currentMdStyle = useStore((s) => s.mdStyle);
 
   const editorRef = useRef<EditorHandle>(null);
   const [editorScrollRatio, setEditorScrollRatio] = useState(0);
@@ -580,24 +574,7 @@ export default function App() {
           label: `${autoSave ? "✓ " : "  "}自动保存`,
           action: () => useStore.getState().setAutoSave(!autoSave),
         },
-        { label: "编辑器设置...", action: () => setSettingsOpen(true) },
-        { divider: true as const, label: "" },
-        {
-          label: "主题",
-          children: themes.map((t) => ({
-            label: t.label,
-            action: () => setTheme(t.name),
-            disabled: currentTheme === t.name,
-          })),
-        },
-        {
-          label: "样式",
-          children: mdStyles.map((s) => ({
-            label: s.label,
-            action: () => setMdStyle(s.name),
-            disabled: currentMdStyle === s.name,
-          })),
-        },
+        { label: "首选项...", action: () => setSettingsOpen(true) },
       ],
     },
     {

@@ -1,6 +1,6 @@
 # ExDao Editor
 
-轻量级 Markdown 编辑器 | Lightweight Markdown Editor v0.4.0
+轻量级 Markdown 编辑器 | Lightweight Markdown Editor v0.4.1
 
 基于 Tauri 2 + React 18 + CodeMirror 6 构建，专注于编辑体验的本地 Markdown 编辑器。
 
@@ -46,6 +46,7 @@ Built with Tauri 2 + React 18 + CodeMirror 6, a local-first Markdown editor focu
 - **自动保存** — 修改后自动保存文件
 - **保存时格式化** — 保存时自动格式化 Markdown 内容
 - **编辑器宽度** — 设置编辑区域的最大宽度
+- **外观** — 主题选择 + Markdown 显示样式选择
 - **仓库设置** — 选择/更换/移除仓库
 - **自定义样式** — 输入自定义 CSS 代码，实时生效
 
@@ -89,7 +90,7 @@ Built with Tauri 2 + React 18 + CodeMirror 6, a local-first Markdown editor focu
 | **文件** / File | 新建、打开仓库、保存、另存为、关闭、导出 HTML/PDF、关闭应用 |
 | **编辑** / Edit | 撤销、重做、查找、替换、自动换行、保存时格式化 |
 | **视图** / View | 编辑模式、工具栏/侧边栏/大纲、字体缩放、全屏、专注模式、打字机模式、专注范围 |
-| **设置** / Settings | 自动保存、编辑器设置、主题、样式 |
+| **设置** / Settings | 自动保存、首选项 |
 | **帮助** / Help | 快捷键、关于 |
 
 ---

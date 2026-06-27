@@ -1,5 +1,7 @@
 import { useStore, MarkdownFormat } from "../lib/store";
 import { selectVaultDirectory } from "../lib/vault";
+import { themes } from "../lib/themes";
+import { mdStyles } from "../lib/mdStyles";
 
 interface SettingsProps {
   open: boolean;
@@ -46,6 +48,10 @@ export function Settings({ open, onClose }: SettingsProps) {
   const setLargeText = useStore((s) => s.setLargeText);
   const markdownFormat = useStore((s) => s.markdownFormat);
   const setMarkdownFormat = useStore((s) => s.setMarkdownFormat);
+  const theme = useStore((s) => s.theme);
+  const setTheme = useStore((s) => s.setTheme);
+  const mdStyle = useStore((s) => s.mdStyle);
+  const setMdStyle = useStore((s) => s.setMdStyle);
 
   if (!open) return null;
 
@@ -156,6 +162,44 @@ export function Settings({ open, onClose }: SettingsProps) {
                 />
                 <span className="pref-range-value">{editorWidth}px</span>
               </div>
+            </div>
+          </div>
+
+          <div className="pref-divider" />
+
+          <div className="pref-list">
+            <div className="pref-item-section">
+              <div className="pref-item-label">外观</div>
+            </div>
+            <div className="pref-item">
+              <div className="pref-item-content">
+                <div className="pref-item-label">主题</div>
+                <div className="pref-item-desc">选择应用的色彩主题</div>
+              </div>
+              <select
+                className="pref-select"
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+              >
+                {themes.map((t) => (
+                  <option key={t.name} value={t.name}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="pref-item">
+              <div className="pref-item-content">
+                <div className="pref-item-label">Markdown 样式</div>
+                <div className="pref-item-desc">选择预览区域的显示样式</div>
+              </div>
+              <select
+                className="pref-select"
+                value={mdStyle}
+                onChange={(e) => setMdStyle(e.target.value)}
+              >
+                {mdStyles.map((s) => (
+                  <option key={s.name} value={s.name}>{s.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 
